@@ -7,62 +7,62 @@
     this.superClass = superClass;
 }
 
-var log = Function.prototype.bind.call(console.log, console);
-
 window.Module = function () { //Абстрактный класс с базовой реализацией функционала
     var window; //Скрываем ссылки на объекты браузера
     var document; //Скрываем ссылки на объекты браузера
-    this.context; //Ссылка на контекст модуля
-    this.id; //Уникальный id модуля в рамках сессии
-    this.param; //Параметры, с которыми был вызван модуль
-    this.name; //Уникальное постоянное имя модуля (crc32 функция от параметров, с которыми загружен этот модуль и имени библиотеки)
     var self = this;
     var poll = $('script[id=core]'); //Ссылка на ядро
+
+    this.context; //Ссылка на контекст модуля
+
+    this.id; //Уникальное постоянное имя модуля (crc32 функция от параметров, с которыми загружен этот модуль и имени библиотеки)
+
+    this.param; //Параметры, с которыми был вызван модуль
 
     this.entry = function (message) { //Точка входа в модуль для ядра, через него происходит оповещение модулей обо всем что происходит
         switch (message.event) {
             case "binding": //Вызывается один раз, при инициализации модуля
-                poll.trigger({ type: "msg", header: "complete", body: { name: message.name} }); //Сообщаем ядру что модуль готов к работе
+                poll.trigger({ type: "msg", header: "complete", body: { id: message.id} }); //Сообщаем ядру что модуль готов к работе
 
-                this.id = message.guid;
-                this.name = message.name;
+                this.id = message.id;
                 this.context = message.context;
-                this.param = message.data || {};
+                this.param = message.data;
+                this.type = message.type;
 
-                poll.trigger({ type: "state", header: "beforeBinding", body: this });
+                poll.trigger({ type: "beforeBinding", body: this });
 
                 var promise = $.when(this.onBinding())
                 .then(function () {
-                    poll.trigger({ type: "state", header: "afterBinding", body: this });
+                    poll.trigger({ type: "afterBinding", body: this });
                 } .bind(this))
                 .fail(function () {
-                    poll.trigger({ type: "state", header: "errorBinding", body: this });
+                    poll.trigger({ type: "errorBinding", body: this });
                 } .bind(this));
 
                 return promise;
                 break;
             case "main": //Вызывается в первый раз после binding и каждый раз перед show, если контекст модуля был удален
-                poll.trigger({ type: "state", header: "beforeMain", body: this });
+                poll.trigger({ type: "beforeMain", body: this });
 
                 var promise = $.when(this.onBinding(), this.main())
                 .then(function () {
-                    poll.trigger({ type: "state", header: "afterMain", body: this });
+                    poll.trigger({ type: "afterMain", body: this });
                 } .bind(this))
                 .fail(function () {
-                    poll.trigger({ type: "state", header: "errorMain", body: this });
+                    poll.trigger({ type: "errorMain", body: this });
                 } .bind(this));
 
                 return promise;
                 break;
             case "unbinding": //Вызывается один раз, при уничтожении модуля
-                poll.trigger({ type: "state", header: "beforeUnbinding", body: this });
+                poll.trigger({ type: "beforeUnbinding", body: this });
                 var promise = $.when(this.onUnbinding())
                 .then(function () {
                     this.context.remove();
-                    poll.trigger({ type: "state", header: "afterUnbinding", body: this });
+                    poll.trigger({ type: "afterUnbinding", body: this });
                 } .bind(this))
                 .fail(function () {
-                    poll.trigger({ type: "state", header: "errorUnbinding", body: this });
+                    poll.trigger({ type: "errorUnbinding", body: this });
                 } .bind(this));
 
                 return promise;
@@ -70,15 +70,15 @@ window.Module = function () { //Абстрактный класс с базов�
             case "show": //Вызывается каждый раз, когда модуль становится видим
                 if (!this.context) return;
                 if (!this.visible) {
-                    poll.trigger({ type: "state", header: "beforeShow", body: this });
+                    poll.trigger({ type: "beforeShow", body: this });
                     var promise = $.when(this.onShow())
                     .then(function () {
                         this.visible = true;
                         this.context.show();
-                        poll.trigger({ type: "state", header: "afterShow", body: this });
+                        poll.trigger({ type: "afterShow", body: this });
                     } .bind(this))
                     .fail(function () {
-                        poll.trigger({ type: "state", header: "errorShow", body: this });
+                        poll.trigger({ type: "errorShow", body: this });
                     } .bind(this));
 
                     return promise;
@@ -87,15 +87,15 @@ window.Module = function () { //Абстрактный класс с базов�
             case "hide": //Вызывается каждый раз, когда модуль становится невидим
                 if (!this.context) return;
                 if (this.visible === true) {
-                    poll.trigger({ type: "state", header: "beforeHide", body: this });
+                    poll.trigger({ type: "beforeHide", body: this });
                     var promise = $.when(this.onHide())
                     .then(function () {
                         this.visible = false;
                         this.context.hide();
-                        poll.trigger({ type: "state", header: "afterHide", body: this });
+                        poll.trigger({ type: "afterHide", body: this });
                     } .bind(this))
                     .fail(function () {
-                        poll.trigger({ type: "state", header: "errorHide", body: this });
+                        poll.trigger({ type: "errorHide", body: this });
                     } .bind(this));
 
                     return promise;
@@ -114,14 +114,6 @@ window.Module = function () { //Абстрактный класс с базов�
 
     this.message = function (type, mgs) {
         poll.trigger({ type: "msg", header: type, body: mgs });
-    };
-
-    this.getGuid = function () {
-        return this.guid;
-    };
-
-    this.getName = function () {
-        return this.name;
     };
 }
 
@@ -239,7 +231,7 @@ window.Manager = function (options) {
             return options.theme;
         }
         options.theme = 'themeName';
-        poll.trigger({ type: "state", header: "changeTheme", body: { name: options.theme} });
+        poll.trigger({ type: "changeTheme", body: { name: options.theme} });
     }
 
     poll.bind('msg', function (data) { //точка входа в ядро для модулей
@@ -253,10 +245,10 @@ window.Manager = function (options) {
                 listOfLibraries[library.name] = library; //имя модуля должно быть уникально 
 
                 var body = listOfLibraries[library.name];
-                poll.trigger({ type: "state", header: "beforeAttach", body: body });
+                poll.trigger({ type: "beforeAttach", body: body });
                 break;
             case "complete":
-                listOfModules[data.body.name].status = 'complete';
+                listOfModules[data.body.id].status = 'complete';
                 break;
             case "message":
                 $.each(listOfModules, function (type, mgs) {
@@ -271,12 +263,12 @@ window.Manager = function (options) {
                     test: listOfLibraries[data.body.library],
                     nope: 'modules/' + jsFile + '.js',
                     callback: function (url, result, key) {
-                        poll.trigger({ type: "state", header: "afterAttach", body: url });
+                        poll.trigger({ type: "afterAttach", body: url });
                     },
                     complete: function () {
                         var promiceForHide = [];
                         $.each(listOfModules, function () {
-                            if (this.name != data.body.name && this.status == 'complete') {
+                            if (this.id != data.body.id && this.status == 'complete' && this.type == 'window') {
                                 promiceForHide.push(this.body.entry({ event: "hide" }));
                             }
                         });
@@ -289,12 +281,12 @@ window.Manager = function (options) {
                             var lib = listOfLibraries[libraryName];
 
                             if (!lib) {
-                                poll.trigger({ type: "state", header: "errorAttach", body: libraryName });
+                                poll.trigger({ type: "errorAttach", body: libraryName });
                                 return;
                             }
 
                             if (lib.dependence) {
-                                poll.trigger({ type: "state", header: "beforeDependence", body: {} });
+                                poll.trigger({ type: "beforeDependence", body: {} });
                                 loader = new Dependence();
                                 loader.add(lib.dependence.css);
 
@@ -304,50 +296,50 @@ window.Manager = function (options) {
 
                                 $.when(loader.load())
                                 .then(function () {
-                                    poll.trigger({ type: "state", header: "afterDependence", body: {} });
-                                    var module = listOfModules[data.body.name] || {
+                                    poll.trigger({ type: "afterDependence", body: {} });
+                                    var module = listOfModules[data.body.id] || {
                                         library: libraryName,
-                                        name: data.body.name,
-                                        class: data.body.class
+                                        id: data.body.id,
+                                        class: data.body.class,
+                                        type: data.body.type || 'window'
                                     };
 
                                     if (lib.body) {
                                         var isNewModule = !module.status;
                                         if (isNewModule) {
-                                            listOfModules[module.name] = module;
-                                            module.guid = generateGUID();
+                                            listOfModules[module.id] = module;
                                             module.body = new lib.body(); //создание экземпляра библиотеки
                                         }
                                         if (module.body instanceof Module) { //Модуль должен наследовать методы базового класса Lib
-                                            var context = contextContainer.find('#' + module.guid);
+                                            var context = contextContainer.find('#' + module.id);
                                             var isNewContext = false;
                                             if (context.length == 0) {
                                                 isNewContext = true;
-                                                contextContainer.append('<li id="' + module.guid + '" name="' + module.name + '" class="' + module.class + '">'); //создание контекста
-                                                context = contextContainer.find('#' + module.guid);
+                                                contextContainer.append('<li id="' + module.id + (module.class ? ' class="' + module.class + '"' : '') + '>'); //создание контекста
+                                                context = contextContainer.find('#' + module.id);
                                             }
                                             if ('visibility' in data.body) {
-                                                var defaultVisibleState = data.body.visibility == 'hidden' ? 'hide' : 'show';
+                                                var defaultVisibleState = data.body.visibility == 'hide' ? 'hide' : 'show';
                                             } else {
                                                 context.removeAttr('visibility');
                                                 context.removeAttr('display');
                                                 var defaultVisibleState = context.is(':visible') ? 'show' : 'hide';
                                             }
                                         } else {
-                                            poll.trigger({ type: "state", header: "errorAttach", body: module });
+                                            poll.trigger({ type: "errorAttach", body: module });
                                         }
 
                                         if (isNewContext) {
-                                            $.when((isNewModule ? module.body.entry({ event: "binding", guid: module.guid, name: module.name, context: context, data: data.body.param }) : {}), module.body.entry({ event: "main" }), module.body.entry({ event: defaultVisibleState }));
+                                            $.when((isNewModule ? module.body.entry({ event: "binding", id: module.id, context: context, data: data.body.param || {}, type: module.type }) : {}), module.body.entry({ event: "main" }), module.body.entry({ event: defaultVisibleState }));
                                         } else {
                                             module.body.entry({ event: defaultVisibleState });
                                         }
                                     } else {
-                                        poll.trigger({ type: "state", header: "errorAttach", body: module });
+                                        poll.trigger({ type: "errorAttach", body: module });
                                     }
                                 })
                                 .fail(function () {
-                                    poll.trigger({ type: "state", header: "errorDependence", body: {} });
+                                    poll.trigger({ type: "errorDependence", body: {} });
                                 });
                             }
 
@@ -358,14 +350,3 @@ window.Manager = function (options) {
         }
     });
 }
-
-!function () {
-    $('script[id=core]').bind('state', function (msg) {
-        log.apply(console, [msg.header]);
-    });
-    $(document).ajaxStart(function (ajax) {
-        log.apply(console, [ajax.type]);
-    }).ajaxStop(function (ajax) {
-        log.apply(console, [ajax.type]);
-    });
-} ();

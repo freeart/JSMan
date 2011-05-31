@@ -8,8 +8,6 @@
 
         this.main = function () { //Точка входа в библиотеку
             this.context.html('Hello World with param: "' + this.param + '"');
-            var store = $.get('core/modules.txt');
-            return store;
         }
 
         this.onHide = function () {

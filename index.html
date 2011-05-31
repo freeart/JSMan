@@ -1,9 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <script src="http://code.jquery.com/jquery-1.6.1.js" type="text/javascript"></script>
+    <script src="http://code.jquery.com/jquery-1.6.1.js" type="text/javascript"></script>    
+    <script src="lib/jquery.jgrowl.js" type="text/javascript"></script>
+    <style src="lib/css/jquery.jgrowl.css" media="all" type="text/css"></style>
     <script src="lib/yepnope.js" type="text/javascript"></script>
 
     <script src="core/tiny.js" id="core" type="text/javascript"></script>
@@ -13,8 +15,9 @@
     $(document).ready(function () {
 
         $('#mainContext').append(
-            '<div class="item" data-name="1" data-visibility="visible" data-class="document" data-library="simple.HelloWorld" data-param="1">Load "HelloWorld"</div>',
-            '<div class="item" data-name="2" data-visibility="visible" data-class="document" data-library="simple.GoodBay" data-param="2">Load "GoodBay"</div>'
+            '<div class="item" data-id="1" data-visibility="show" data-class="document" data-library="simple.HelloWorld" data-param="1">Load "HelloWorld"</div>',
+            '<div class="item" data-id="2" data-visibility="show" data-class="document" data-library="simple.GoodBay" data-param="2">Load "GoodBay"</div>',
+            '<div class="item" data-type="widget" data-id="menu" data-visibility="show" data-class="document" data-library="simple.Menu">Load menu</div>'
         );
 
         $('#mainContext').find(".item").click(function () {
@@ -25,6 +28,15 @@
             var core = new window.Manager();
 
             core.theme('new');
+
+            $('script[id=core]').bind('state', function (msg) {
+                $.jGrowl(msg.header);
+            });
+            $(document).ajaxStart(function (ajax) {
+                $.jGrowl(ajax.type);
+            }).ajaxStop(function (ajax) {
+                $.jGrowl(ajax.type);
+            });
         }
 
     });
