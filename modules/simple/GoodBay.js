@@ -1,34 +1,40 @@
-!function () { 
+!function () {
 
     var Lib = function () {
         var self = this;
-        Lib.superClass.apply(this); 
+        Lib.superClass.apply(this);
 
-        var answer2;
+        var isBusy;
+
+        this.commit = function () {
+            isBusy = false;
+        }
+
+        this.rollback = function () {
+            isBusy = false;
+        }
 
         this.main = function () {
-            this.context.html('Hello World with param: "' + this.param + '"');
+            this.context.html('GoodBay World with param: "' + this.param + '"');
+            isBusy = true;
         }
 
         this.onHide = function () {
-            var dfd = $.Deferred();
-            if (!answer2) {
-                answer2 = true;
+            if (isBusy) {
+                var dfd = $.Deferred();
                 dfd.reject();
-            } else {
-                dfd.resolve();
+                return dfd;
             }
-            return dfd;
         }
     }
-    Lib.extend(window.Module); 
+    Lib.extend(window.Module);
 
-    $("script[id=core]").trigger({  
-        type: "msg",                
-        header: "attach", 
+    $("script[id=core]").trigger({
+        type: "request",
+        header: "attach",
         body: {
-            module: Lib, 
-            name: "Hello" 
+            module: Lib,
+            name: "GoodBay"
         }
     });
 

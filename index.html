@@ -4,39 +4,68 @@
     <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <script src="http://code.jquery.com/jquery-1.6.1.js" type="text/javascript"></script>    
-    <script src="lib/jquery.jgrowl.js" type="text/javascript"></script>
-    <style src="lib/css/jquery.jgrowl.css" media="all" type="text/css"></style>
+    <!--script src="lib/jquery.jgrowl.js" type="text/javascript"></script>
+    <link rel="stylesheet" href="lib/css/jquery.jgrowl.css" type="text/css" media="screen" /> -->
     <script src="lib/yepnope.js" type="text/javascript"></script>
 
     <script src="core/tiny.js" id="core" type="text/javascript"></script>
 </head>
 <body id="mainContext">
-<script language="javascript" type="text/javascript">
+<script type="text/javascript">
     $(document).ready(function () {
+        var poll = $('script[id=core]');
 
         $('#mainContext').append(
-            '<div class="item" data-id="1" data-visibility="show" data-class="document" data-library="simple.HelloWorld" data-param="1">Load "HelloWorld"</div>',
-            '<div class="item" data-id="2" data-visibility="show" data-class="document" data-library="simple.GoodBay" data-param="2">Load "GoodBay"</div>',
-            '<div class="item" data-type="widget" data-id="menu" data-visibility="show" data-class="document" data-library="simple.Menu">Load menu</div>'
+            '<div class="item" data-id="_1" data-class="document" data-library="simple.HelloWorld" data-param="1">Load "HelloWorld"</div>',
+            '<div class="item" data-id="_2" data-class="document" data-library="simple.GoodBay" data-param="2">Load "GoodBay (not saved)"</div>'
         );
 
         $('#mainContext').find(".item").click(function () {
-            $('script[id=core]').trigger({ type: "msg", header: "instance", body: $(this).data() });
+            poll.trigger({ type: "request", header: "instance", body: $(this).data() });
         });
 
         if (window.Manager) {
-            var core = new window.Manager();
+            window.onerror = function (errorMsg, url, lineNumber) {
+                $.jGrowl('Error in file ' + url + ' at line ' + lineNumber + "\n" + 'message: ' + errorMsg, 'error', { sticky: true });
+            };
 
-            core.theme('new');
+            var core = new window.Manager({
+                dependence: {
+                    js: ['lib/jquery.jgrowl.js'],
+                    css: ['lib/css/jquery.jgrowl.css']
+                },
+                mainContextId: 'mainContext',
+                contextContainerId: 'contextContainer',
+                coreId: 'core'
+            });
 
-            $('script[id=core]').bind('state', function (msg) {
-                $.jGrowl(msg.header);
+            poll.bind('message', function (msg) {
+                switch (msg.header) {
+                    case "beforeRun":
+                        core.theme('new');
+                        break;
+                    case "afterRun":
+                        poll.trigger({ type: "request", header: "instance", body: { type: "widget", id: "menu", library: "simple.Menu"} });
+                        break;
+                }
             });
-            $(document).ajaxStart(function (ajax) {
-                $.jGrowl(ajax.type);
-            }).ajaxStop(function (ajax) {
-                $.jGrowl(ajax.type);
-            });
+
+            core.run().done(function () {
+//                poll.bind('message', function (msg) {
+//                    $.jGrowl(msg.header, { life: 10000 });
+//                });
+//                $(document).ajaxStart(function (ajax) {
+//                    $.jGrowl(ajax.type, { life: 10000 });
+//                }).ajaxStop(function (ajax) {
+//                    $.jGrowl(ajax.type, { life: 10000 });
+//                }).ajaxError(function (ajax) {
+//                    $.jGrowl(ajax.type, { sticky: true });
+//                });
+            })
+            .fail(function () {
+                alert('System error');
+            })
+
         }
 
     });

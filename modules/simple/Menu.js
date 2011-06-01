@@ -10,8 +10,8 @@
     }
     Lib.extend(window.Module); 
 
-    $("script[id=core]").trigger({  
-        type: "msg",                
+    $("script[id=core]").trigger({
+        type: "request",                
         header: "attach", 
         body: {
             module: Lib, 
