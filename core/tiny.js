@@ -1,3 +1,4 @@
+//#region extend
 Function.prototype.extend = function (superClass) { //inheritance
     var Inheritance = function () { };
     Inheritance.prototype = superClass.prototype;
@@ -6,7 +7,9 @@ Function.prototype.extend = function (superClass) { //inheritance
     this.prototype.constructor = this;
     this.superClass = superClass;
 }
+//#endregion
 
+//#region Module
 window.Module = function () { //abstract class
     var window; //hide the global object
     var document; //hide the global object
@@ -95,7 +98,7 @@ window.Module = function () { //abstract class
                         poll.trigger({ type: "message", header: "afterHide", body: self });
                     })
                     .fail(function () {
-                        if (confirm('Данные не сохранены' + "\nВыйти без изменений?")) {
+                        if (confirm("Data not saved, continue?")) {
                             self.rollback();
                             message.retry();
                         }
@@ -158,178 +161,103 @@ window.Module.prototype = {
 
     }
 }
+//#endregion
 
-window.Manager = function (options) {
+//#region Manager
+window.App = function (options) {
 
-    var defOptions = {
-        theme: 'default'
-    };
-    options = $.extend({}, options, defOptions);
+    var listOfLibraries, listOfModules;
 
-    var loader, mainContex, contextContainert, poll, listOfLibraries, listOfModules;
+    var defOptions = {};
 
-    var s4 = function () {
-        return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
-    };
-
-    var generateGUID = function () {
-        return (s4() + s4() + "-" + s4() + "-" + s4() + "-" + s4() + "-" + s4() + s4() + s4());
-    };
-
-    var Dependence = function () {
-        var chain = [];
-        var dfd;
-
-        var isExists = function () {
-            var o, d;
-            $.each(arguments, function (k, v) {
-                if (typeof v != 'string') return undefined;
-                d = v.split(".");
-                o = window[d[0]];
-                if (o === undefined) return false;
-                $.each(d.slice(1), function (k, v2) {
-                    if (o[v2]) {
-                        o = o[v2];
-                    } else {
-                        return false;
-                    }
-                });
-            });
-            return o;
-        };
-
-        this.add = function (files, test) {
-            if (!files) return;
-            if (arguments.length == 2) {
-                chain.push({
-                    test: isExists(test),
-                    nope: files,
-                    callback: function (url, result, key) {
-                        if (!isExists(test)) {
-                            dfd.reject();
-                        }
-                    }
-                });
-            } else {
-                chain.push({
-                    load: files
-                });
-            }
-        }
-
-        this.load = function () {
-            dfd = $.Deferred();
-            dfd.always(function () {
-                chain = [];
-            });
-
-            if (chain.length > 0) {
-                chain[chain.length - 1].complete = function () {
-                    if (!dfd.isRejected()) {
-                        dfd.resolve();
-                    }
-                }
-                yepnope(chain);
-                return dfd.promise();
-            } else {
-                return false;
-            }
-        }
-    }
-
-    this.theme = function (themeName) {
-        if (arguments.length == 0) {
-            return options.theme;
-        }
-        options.theme = 'themeName';
-        poll.trigger({ type: "message", header: "changeTheme", body: { name: options.theme} });
-    }
+    var options = this.options = $.extend({}, options, defOptions);
+    var poll = this.poll = $('script[id=' + options.id + ']');
+    var target = $('#' + options.target);
 
     var instant = function (body) {
-        body.type = body.type || 'window';
-
-        var promiceForHide = [];
-        if (body.type == 'window') {
+        var dfd = $.Deferred();
+        if (body.manager == 'container') {
+            var promiceForHide = [];
             $.each(listOfModules, function () {
-                if (this.id != body.id && this.status == 'complete' && this.type == 'window') {
-                    promiceForHide.push(this.body.entry({ event: "hide", retry: function () { instant(body) } }));
+                if (this.id != body.id && this.status == 'complete' && this.manager == body.manager) {
+                    promiceForHide.push(this.body.entry({ event: "hide", retry: function () { instant(body); } }));
                 }
             });
+            $.when.apply(this, promiceForHide).then(function () {
+                var modulesContainer = target.find('#' + body.manager);
+                if (modulesContainer.length == 0) {
+                    target.append('<ul id="' + body.manager + '"></ul>');
+                }
+                modulesContainer = target.find('#' + body.manager);
+
+                var context = modulesContainer.find('#' + body.id);
+                if (context.length == 0) {
+                    modulesContainer.append('<li id="' + body.id + '"' + (body.class ? ' class="' + body.class + '"' : '') + '>');
+                }
+                context = modulesContainer.find('#' + body.id);
+
+                dfd.resolve(context);
+            })
+        } else if (body.manager == 'single') {
+            var context = target.find('#' + body.manager);
+            if (context.length == 0) {
+                target.append('<div id="' + body.id + '"' + (body.class ? ' class="' + body.class + '"' : '') + '></div>');
+            }
+            context = target.find('#' + body.manager);
+
+            dfd.resolve(context);
         }
-        $.when.apply(this, promiceForHide)
-        .then(function () {
+
+        dfd.done(function (context) {
             var lib = listOfLibraries[body.libraryName];
 
-            if (lib.dependence) {
-                poll.trigger({ type: "message", header: "beforeDependence", body: {} });
+            var module = listOfModules[body.id] || {
+                library: body.libraryName,
+                id: body.id,
+                class: body.class,
+                type: body.type
+            };
 
-                loader.add(lib.dependence.css);
-
-                $.each(lib.dependence.js || {}, function (test, js) {
-                    loader.add(js, test);
-                });
-            }
-
-            $.when(loader.load())
-            .then(function (result) {
-                if (result !== false) {
-                    poll.trigger({ type: "message", header: "afterDependence", body: {} });
+            if (lib.body) {
+                var isNewModule = !module.status;
+                if (isNewModule) {
+                    listOfModules[module.id] = module;
+                    module.body = new lib.body();
                 }
-                var module = listOfModules[body.id] || {
-                    library: body.libraryName,
-                    id: body.id,
-                    class: body.class,
-                    type: body.type
-                };
-
-                if (lib.body) {
-                    var isNewModule = !module.status;
-                    if (isNewModule) {
-                        listOfModules[module.id] = module;
-                        module.body = new lib.body();
+                if (module.body instanceof Module) {
+                    var context = contextContainer.find('#' + module.id);
+                    var isNewContext = false;
+                    if (context.length == 0) {
+                        isNewContext = true;
+                        contextContainer.append('<li id="' + module.id + '"' + (module.class ? ' class="' + module.class + '"' : '') + '>');
+                        context = contextContainer.find('#' + module.id);
                     }
-                    if (module.body instanceof Module) {
-                        var context = contextContainer.find('#' + module.id);
-                        var isNewContext = false;
-                        if (context.length == 0) {
-                            isNewContext = true;
-                            contextContainer.append('<li id="' + module.id + '"' + (module.class ? ' class="' + module.class + '"' : '') + '>'); //создание контекста
-                            context = contextContainer.find('#' + module.id);
-                        }
-                        var defaultVisibleState = body.visibility == 'hide' ? 'hide' : 'show'
-                    } else {
-                        poll.trigger({ type: "message", header: "errorAttach", body: module });
-                        return false;
-                    }
-
-                    if (isNewContext) {
-                        $.when((isNewModule ? module.body.entry({ event: "binding", id: module.id, context: context, data: body.param || {}, type: module.type }) : {}), module.body.entry({ event: "main" }), module.body.entry({ event: defaultVisibleState }));
-                    } else {
-                        module.body.entry({ event: defaultVisibleState });
-                    }
+                    var defaultVisibleState = body.visibility == 'hide' ? 'hide' : 'show'
                 } else {
                     poll.trigger({ type: "message", header: "errorAttach", body: module });
                     return false;
                 }
-            });
+
+                if (isNewContext) {
+                    $.when((isNewModule ? module.body.entry({ event: "binding", id: module.id, context: context, data: body.param || {}, type: module.type }) : {}), module.body.entry({ event: "main" }), module.body.entry({ event: defaultVisibleState }));
+                } else {
+                    module.body.entry({ event: defaultVisibleState });
+                }
+            } else {
+                poll.trigger({ type: "message", header: "errorAttach", body: module });
+                return false;
+            }
         });
     }
 
     this.run = function () {
-        poll = $('script[id=' + options.coreId + ']');
+        var dfd = $.Deferred();
 
         poll.trigger({ type: "message", header: "beforeRun", body: {} });
-
-        mainContext = $('#' + options.mainContextId);
-        mainContext.append('<ul id="' + options.contextContainerId + '"></ul>');
-
-        contextContainer = mainContext.find('#' + options.contextContainerId);
 
         listOfLibraries = {};
 
         listOfModules = {};
-
-        loader = new Dependence();
 
         poll.bind('request', function (data) {
             switch (data.header) {
@@ -375,23 +303,10 @@ window.Manager = function (options) {
             }
         });
 
-        if (options.dependence) {
-            loader.add(options.dependence.css);
-
-            if ($.isArray(options.dependence.js)) {
-                loader.add(options.dependence.js);
-            } else if ($.isPlainObject(options.dependence.js)) {
-                $.each(options.dependence.js || {}, function (test, js) {
-                    loader.add(js, test);
-                });
-            }
-        }
-
-        if (poll.length == 0 || mainContext.length == 0 || contextContainer.length == 0) {
-            var dfd = $.Deferred();
+        if (poll.length == 0 || target.length == 0) {
             dfd.reject();
         } else {
-            var dfd = loader.load();
+            dfd.resolve()
         }
         dfd.done(function () {
             poll.trigger({ type: "message", header: "afterRun", body: {} });
@@ -400,3 +315,4 @@ window.Manager = function (options) {
         return dfd.promise();
     }
 }
+//#endregion

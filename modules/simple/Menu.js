@@ -15,7 +15,8 @@
         header: "attach", 
         body: {
             module: Lib, 
-            name: "Menu" 
+            name: "Menu",
+            contextContainer: '#mainMenu' 
         }
     });
 
