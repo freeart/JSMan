@@ -14,11 +14,11 @@
 <script type="text/javascript">
     $(document).ready(function () {
         $('#mainContext').append(
-            '<div class="item" data-id="_1" data-manager="container" data-class="document" data-library="simple.HelloWorld" data-param="1">Load "HelloWorld"</div>',
-            '<div class="item" data-id="_2" data-manager="container" data-class="document" data-library="simple.GoodBay" data-param="2">Load "GoodBay (not saved)"</div>'
+            '<div class="item" data-id="_1" data-manager="windows" data-class="document" data-library="simple.HelloWorld" data-param="1">Load "HelloWorld"</div>',
+            '<div class="item" data-id="_2" data-manager="windows" data-class="document" data-library="simple.GoodBay" data-param="2">Load "GoodBay (not saved)"</div>'
         );
 
-        if (window.Manager) {
+        if (window.App) {
             window.onerror = function (errorMsg, url, lineNumber) {
                 $.jGrowl('Error in file ' + url + ' at line ' + lineNumber + "\n" + 'message: ' + errorMsg, 'error', { sticky: true });
             };
@@ -27,7 +27,7 @@
                 id: 'core',                
                 target: 'mainContext',
                 managers: {
-                    container: '',
+                    windows: '',
                     single: ''
                 }
             });
@@ -35,10 +35,10 @@
             core.poll.bind('message', function (msg) {
                 switch (msg.header) {
                     case "afterRun":
-                        $('#mainContext').find(".item").click(function () {
+                        core.target.find(".item").click(function () {
                             core.poll.trigger({ type: "request", header: "instance", body: $(this).data() });
                         });
-                        poll.trigger({ type: "request", header: "instance", body: { manager: "single", id: "menu", library: "simple.Menu"} });
+                        core.poll.trigger({ type: "request", header: "instance", body: { manager: "single", id: "menu", library: "simple.Menu"} });
 
                         core.poll.bind('message', function (msg) {
                             $.jGrowl(msg.header, { life: 10000 });

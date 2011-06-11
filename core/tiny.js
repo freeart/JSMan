@@ -172,50 +172,64 @@ window.App = function (options) {
 
     var options = this.options = $.extend({}, options, defOptions);
     var poll = this.poll = $('script[id=' + options.id + ']');
-    var target = $('#' + options.target);
+    var target = this.target = $('#' + options.target);
 
-    var instant = function (body) {
-        var dfd = $.Deferred();
-        if (body.manager == 'container') {
+    var createContext = function (manager, id, className, dfd) {
+        if (!dfd) {
+            dfd = $.Deferred();
+        }
+
+        if (manager == 'windows') {
             var promiceForHide = [];
             $.each(listOfModules, function () {
-                if (this.id != body.id && this.status == 'complete' && this.manager == body.manager) {
-                    promiceForHide.push(this.body.entry({ event: "hide", retry: function () { instant(body); } }));
+                if (this.id != id && this.status == 'complete' && this.manager == manager) {
+                    promiceForHide.push(this.body.entry({ event: "hide", retry: function () { createContext(manager, id, className, dfd); } }));
                 }
             });
             $.when.apply(this, promiceForHide).then(function () {
-                var modulesContainer = target.find('#' + body.manager);
+                var modulesContainer = target.find('#' + manager);
+                var isNewContext = false;
                 if (modulesContainer.length == 0) {
-                    target.append('<ul id="' + body.manager + '"></ul>');
+                    target.append('<ul id="' + manager + '"></ul>');
                 }
-                modulesContainer = target.find('#' + body.manager);
+                modulesContainer = target.find('#' + manager);
 
-                var context = modulesContainer.find('#' + body.id);
+                var context = modulesContainer.find('#' + id);
                 if (context.length == 0) {
-                    modulesContainer.append('<li id="' + body.id + '"' + (body.class ? ' class="' + body.class + '"' : '') + '>');
+                    isNewContext = true;
+                    modulesContainer.append('<li id="' + id + '"' + (className ? ' class="' + className + '"' : '') + '>');
                 }
-                context = modulesContainer.find('#' + body.id);
+                context = modulesContainer.find('#' + id);
 
-                dfd.resolve(context);
+                dfd.resolve(context, isNewContext);
             })
-        } else if (body.manager == 'single') {
-            var context = target.find('#' + body.manager);
+        } else if (manager == 'single') {
+            var context = target.find('#' + id);
+            var isNewContext = false;
             if (context.length == 0) {
-                target.append('<div id="' + body.id + '"' + (body.class ? ' class="' + body.class + '"' : '') + '></div>');
+                isNewContext = true;
+                target.append('<div id="' + id + '"' + (className ? ' class="' + className + '"' : '') + '></div>');
+            } else {
+                context.empty();
             }
-            context = target.find('#' + body.manager);
+            context = target.find('#' + id);
 
-            dfd.resolve(context);
+            dfd.resolve(context, isNewContext);
         }
 
-        dfd.done(function (context) {
+        return dfd.promise();
+    }
+
+    var instant = function (body) {
+        createContext(body.manager, body.id, body.class).done(function (context, isCreated) {
             var lib = listOfLibraries[body.libraryName];
 
             var module = listOfModules[body.id] || {
                 library: body.libraryName,
                 id: body.id,
                 class: body.class,
-                type: body.type
+                type: body.type,
+                manager: body.manager
             };
 
             if (lib.body) {
@@ -224,28 +238,19 @@ window.App = function (options) {
                     listOfModules[module.id] = module;
                     module.body = new lib.body();
                 }
+                var defaultVisibleState = body.visibility == 'hide' ? 'hide' : 'show'
+
                 if (module.body instanceof Module) {
-                    var context = contextContainer.find('#' + module.id);
-                    var isNewContext = false;
-                    if (context.length == 0) {
-                        isNewContext = true;
-                        contextContainer.append('<li id="' + module.id + '"' + (module.class ? ' class="' + module.class + '"' : '') + '>');
-                        context = contextContainer.find('#' + module.id);
+                    if (isCreated) {
+                        $.when((isNewModule ? module.body.entry({ event: "binding", id: module.id, context: context, data: body.param || {}, type: module.type }) : {}), module.body.entry({ event: "main" }), module.body.entry({ event: defaultVisibleState }));
+                    } else {
+                        module.body.entry({ event: defaultVisibleState });
                     }
-                    var defaultVisibleState = body.visibility == 'hide' ? 'hide' : 'show'
                 } else {
                     poll.trigger({ type: "message", header: "errorAttach", body: module });
-                    return false;
-                }
-
-                if (isNewContext) {
-                    $.when((isNewModule ? module.body.entry({ event: "binding", id: module.id, context: context, data: body.param || {}, type: module.type }) : {}), module.body.entry({ event: "main" }), module.body.entry({ event: defaultVisibleState }));
-                } else {
-                    module.body.entry({ event: defaultVisibleState });
                 }
             } else {
                 poll.trigger({ type: "message", header: "errorAttach", body: module });
-                return false;
             }
         });
     }
@@ -293,7 +298,7 @@ window.App = function (options) {
                         complete: function () {
                             if (listOfLibraries[libraryName]) {
                                 poll.trigger({ type: "message", header: "afterAttach", body: listOfLibraries[libraryName] });
-                                instant({ libraryName: libraryName, id: data.body.id, class: data.body.class, type: data.body.type, visibility: data.body.visibility, param: data.body.param });
+                                instant({ libraryName: libraryName, id: data.body.id, class: data.body.class, type: data.body.type, visibility: data.body.visibility, param: data.body.param, manager: data.body.manager });
                             } else {
                                 poll.trigger({ type: "message", header: "errorAttach", body: { name: libraryName} });
                             }
