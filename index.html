@@ -25,11 +25,7 @@
 
             var core = new window.App({
                 id: 'core',                
-                target: 'mainContext',
-                managers: {
-                    windows: '',
-                    single: ''
-                }
+                target: 'mainContext'
             });
 
             core.poll.bind('message', function (msg) {

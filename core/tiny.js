@@ -28,7 +28,6 @@ window.Module = function () { //abstract class
                 this.id = message.id;
                 this.context = message.context;
                 this.param = message.data;
-                this.type = message.type;
 
                 poll.trigger({ type: "request", header: "complete", body: self });
 
@@ -228,7 +227,6 @@ window.App = function (options) {
                 library: body.libraryName,
                 id: body.id,
                 class: body.class,
-                type: body.type,
                 manager: body.manager
             };
 
@@ -242,7 +240,7 @@ window.App = function (options) {
 
                 if (module.body instanceof Module) {
                     if (isCreated) {
-                        $.when((isNewModule ? module.body.entry({ event: "binding", id: module.id, context: context, data: body.param || {}, type: module.type }) : {}), module.body.entry({ event: "main" }), module.body.entry({ event: defaultVisibleState }));
+                        $.when((isNewModule ? module.body.entry({ event: "binding", id: module.id, context: context, data: body.param || {} }) : {}), module.body.entry({ event: "main" }), module.body.entry({ event: defaultVisibleState }));
                     } else {
                         module.body.entry({ event: defaultVisibleState });
                     }
